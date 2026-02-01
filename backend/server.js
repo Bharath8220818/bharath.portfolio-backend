@@ -61,6 +61,7 @@ app.post('/api/contact', async (req, res) => {
         console.log('✅ Message saved to MongoDB');
 
         // 2. Try to send Email - This is a convenience notification
+        let emailStatus = 'sent';
         try {
             const mailOptions = {
                 from: process.env.EMAIL_USER,
@@ -73,13 +74,17 @@ app.post('/api/contact', async (req, res) => {
             console.log('✅ Notification email sent');
         } catch (emailError) {
             console.error('⚠️ Email sending failed:', emailError.message);
-            // We don't fail the whole request if only the email fails
+            emailStatus = `failed: ${emailError.message}`;
         }
 
-        res.status(200).json({ message: 'Message received successfully!' });
+        res.status(200).json({
+            success: true,
+            message: emailStatus === 'sent' ? 'Message received and email sent!' : 'Message received but email failed to send',
+            emailStatus: emailStatus
+        });
     } catch (dbError) {
         console.error('❌ Database Error:', dbError);
-        res.status(500).json({ message: 'Failed to save message to database', error: dbError.message });
+        res.status(500).json({ success: false, message: 'Failed to save message to database', error: dbError.message });
     }
 });
 
