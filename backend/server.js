@@ -1,5 +1,5 @@
 const express = require('express');
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 const cors = require('cors');
 const mongoose = require('mongoose');
 require('dotenv').config();
@@ -29,26 +29,9 @@ mongoose.connect(process.env.MONGO_URI)
 // Import Model (Create this file next if not exists)
 const Message = require('./models/Message');
 
-// Nodemailer Transporter
-const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-    },
-});
+// Resend Initialization
+const resend = new Resend(process.env.RESEND_API_KEY);
 
-// Verify Transporter on Start
-transporter.verify((error, success) => {
-    if (error) {
-        console.error('❌ Email Transporter Error:', error.message);
-        if (error.message.includes('535')) {
-            console.error('👉 TIP: This error (535) means your Gmail App Password is invalid. Please double check .env');
-        }
-    } else {
-        console.log('✅ Email Transporter is ready');
-    }
-});
 
 // API Route: Handle Contact Form
 app.post('/api/contact', async (req, res) => {
@@ -63,14 +46,17 @@ app.post('/api/contact', async (req, res) => {
         // 2. Try to send Email - This is a convenience notification
         let emailStatus = 'sent';
         try {
-            const mailOptions = {
-                from: process.env.EMAIL_USER,
-                to: process.env.EMAIL_USER,
+            await resend.emails.send({
+                from: "Portfolio <onboarding@resend.dev>",
+                to: [process.env.EMAIL_USER],
                 subject: `New Portfolio Message from ${name}`,
-                text: `Name: ${name}\nEmail: ${email}\nMessage: ${message}`,
-                html: `<h3>New Portfolio Message</h3><p><strong>Name:</strong> ${name}</p><p><strong>Email:</strong> ${email}</p><p><strong>Message:</strong> ${message}</p>`,
-            };
-            await transporter.sendMail(mailOptions);
+                html: `
+                    <h3>New Portfolio Message</h3>
+                    <p><strong>Name:</strong> ${name}</p>
+                    <p><strong>Email:</strong> ${email}</p>
+                    <p><strong>Message:</strong> ${message}</p>
+                `,
+            });
             console.log('✅ Notification email sent');
         } catch (emailError) {
             console.error('⚠️ Email sending failed:', emailError.message);
